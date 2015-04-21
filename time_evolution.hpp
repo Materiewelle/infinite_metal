@@ -212,70 +212,43 @@ void time_evolution::get_tunnel_energies(arma::vec & E, arma::vec & W) {
     }
 }
 
-void time_evolution::calculate_q() {
+void time_evolution::calculate_q() { // This is still wrong!!
     using namespace arma;
     using namespace std;
-    using mat22 = cx_mat::fixed<2, 2>;
 
-    // get q values dependent on potential in lead
     auto get_q = [&] (double phi0) {
         // shortcuts
-        static constexpr auto t1 = d::t1;
-        static constexpr auto t12 = t1 * t1;
-        static constexpr auto t2 = d::t2;
-        static constexpr auto t22 = t2 * t2;
         static constexpr auto g = t::g;
         static constexpr auto g2 = g * g;
-        static const mat22 eye2 = { 1, 0, 0, 1 };
+        static constexpr auto tm = d::tm;
+        static constexpr auto tm2 = tm * tm;
 
-        // storage
+        //containers
         cx_vec qq(t::N_t + 3);
-        vector<mat22> p(t::N_t + 3);
 
-        // hamiltonian in lead
-        mat22 h = { phi0, t1, t1, phi0 };
+        // hamiltonian in metal contacts
+        auto h = d::tn + phi0;
 
-        // coupling hamiltonian
-        mat22 Vau = { 0, t2, 0, 0 };
+        auto igh = 1i * g * h;
+        auto ighm = 1.0 - igh;
+        auto ighp = 1.0 + igh;
 
-        // set first 3 values of q and p to 0
+        // set first 3 values of q to 0
         for (int i = 0; i < 3; ++i) {
             qq(i) = 0;
-            p[i] = { 0, 0, 0, 0 };
         }
 
-        // first actual q value (wih pq-formula)
-        auto a = (1.0 + 2i * g * phi0 + g2 * (t12 - t22 - phi0*phi0)) / g2 / (1.0 + 1i * g * phi0);
-        qq(3) = - 0.5 * a + sqrt(0.25 * a * a + t22 / g2);
-
-        // first actual p value
-        p[3] = inv(eye2 + 1i * g * h + mat22({ g2 * qq(3), 0, 0, 0 }));
-
-        // calculate A & C parameters
-        mat22 A = eye2 + 1i * g * h + g2 * Vau.t() * p[3] * Vau;
-        auto C = A(0,0) * A(1,1) - A(0,1) * A(1,0);
+        qq(3) = 0.5 * (sqrt(ighp * ighp + 4 * g2 * tm2) - ighp) / g2;
 
         // loop over all time steps
         for (int i = 4; i < t::N_t + 3; ++i) {
             // perform sum
-            mat22 R = { 0, 0, 0, 0 };
+            cx_double sum = 0;
             for (int k = 4; k < i; ++k) {
-                R += (p[k] + 2 * p[k - 1] + p[k - 2]) * Vau * p[i - k + 3];
+                sum += (qq(k) + 2. * qq(k-1) + qq(k-2)) * qq(i-k+3);
             }
-
-            // calculate B parameter
-            mat22 B = (eye2 - 1i * g * h) * p[i - 1] - g2 * Vau.t() * ((2 * p[i - 1] + p[i - 2]) * Vau * p[3] + R);
-
-            // calculate next p values
-            p[i](1,1) = (A(1,0) * B(0,1) - A(0,0) * B(1,1)) / (g2 * t22 * p[3](0,1) * A(1,0) - C);
-            p[i](0,1) = (B(1,1) - A(1,1) * p[i](1,1)) / A(1,0);
-            p[i](0,0) = (A(1,1) * B(0,0) - A(0,1) * B(1,0) - g2 * t22 * p[3](0,0) * p[i](1,1) * A(1,1)) / C;
-            p[i](1,0) = (B(1,0) - A(1,0) * p[i](0,0)) / A(1,1);
-
-            // calculate next q value
-            qq(i) = t22 * p[i](1,1);
+            qq(i) = ((ighm - 2 * g2 * qq(3)) * qq(i-1) - g2 * (qq(3) * qq(i-2) + sum)) / (ighp + 2 * g2 * qq(3));
         }
-
         return qq;
     };
 
