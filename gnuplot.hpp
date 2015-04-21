@@ -133,17 +133,10 @@ void gnuplot::plot() {
         auto & y = std::get<1>(background);
         auto & z = std::get<2>(background);
 
-        *this << "set title \"Logarithmic lDOS\"\n";
-        *this << "set xlabel \"x / nm\"\n";
-        *this << "set ylabel \"E / eV\"\n";
-        *this << "set zlabel \"log(lDOS)\"\n";
-        *this << "unset key\n";
-        *this << "unset colorbox\n";
-        //*this << "set logscale z\n";
         *this << "set xrange[" << arma::min(x) << ":" << arma::max(x) << "]\n";
         *this << "set yrange[" << arma::min(y) << ":" << arma::max(y) << "]\n";
-        *this << "p \"-\" u 1:2:3 w image";
-        for (unsigned i = 0; i < data.size(); ++i) *this << ", \"-\" u 1:2 w l lw 2 lc rgb '#F6A800' notitle";
+        *this << "p \"-\" w image notitle";
+        for (unsigned i = 0; i < data.size(); ++i) *this << ", \"-\" w l ls " << i+1 << " notitle";
         *this << std::endl;
         for (unsigned i = 0; i < x.size(); ++i) {
             for (unsigned j = 0; j < y.size(); ++j) {
@@ -162,7 +155,7 @@ void gnuplot::plot() {
         if (data.size() > 0) {
             *this << "p ";
             for(unsigned i = 0; i < data.size(); ++i) {
-                *this << "\"-\" w l lw 2 t \"plot" << i + 1 << "\"";
+                *this << "\"-\" w l notitle" << i + 1 << "\"";
                 if (i < data.size() - 1) {
                     *this << ", ";
                 }
